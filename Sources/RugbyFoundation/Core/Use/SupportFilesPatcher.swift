@@ -42,6 +42,12 @@ final class SupportFilesPatcher {
             }
             result.append(("\(product.nameWithParent)/\(HEADERS)",
                            replacement: "\(binaryFolderPath)/\(product.fileName)/\(HEADERS)"))
+
+            if target.pbxTarget.productType == .staticLibrary {
+                let moduleName = product.moduleName ?? product.name
+                result.append(("\(product.name)/\(moduleName).modulemap",
+                            replacement: "\(binaryFolderPath)/\(moduleName).modulemap"))
+            }
         }
 
         let replacements = buildMap(from: replacementsPairs,

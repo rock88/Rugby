@@ -89,6 +89,20 @@ final class BinariesStorage: Loggable {
                 binary = try Folder.at(binaryPath)
             } else {
                 binary = try File.at(binaryPath)
+
+                if target.pbxTarget.productType == .staticLibrary, let folder = product.parentFolderName {
+                    let path = "\(buildConfigFolder)\(folder)"
+                    try FileManager.default.contentsOfDirectory(atPath: path).forEach { name in
+                        let path = "\(path)/\(name)"
+                        if path != binaryPath, !path.hasSuffix(".bundle") {
+                            if path.hasSuffix(".modulemap") {
+                                try patchModulemapFile(target, path: path)
+                            }
+
+                            try result.append((Folder.isExist(at: path) ? Folder.at(path) : File.at(path), nil, targetFolder))
+                        }
+                    }
+                }
             }
             result.append((binary, target.hashContext, targetFolder))
 
@@ -101,6 +115,16 @@ final class BinariesStorage: Loggable {
     private func createLatestFile(paths: [String], in folder: IFolder) throws {
         let content = "\(paths.caseInsensitiveSorted().joined(separator: "\n"))\n"
         try folder.createFile(named: latestFileName, contents: content)
+    }
+
+    private func patchModulemapFile(_ target: Target, path: String) throws {
+        let regex = try NSRegularExpression(pattern: "header \"(.+)Swift Compatibility Header")
+        var content = try String(contentsOfFile: path)
+
+        if let match = regex.firstMatch(in: content, range: NSRange(content.startIndex..., in: content)) {
+            content = content.replacingOccurrences(of: (content as NSString).substring(with: match.range(at: 1)), with: "")
+            try content.data(using: .utf8)?.write(to: URL(fileURLWithPath: path))
+        }
     }
 }
 
